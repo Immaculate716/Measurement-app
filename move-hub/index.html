@@ -1,0 +1,505 @@
+<title>BCS + Immaculate Move</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a shop work-order board. Sticky tab strip, one column on phones, two on desktop. */
+:root{
+  --bg:#eceef1; --surface:#ffffff; --sunk:#f4f5f7; --ink:#17202b; --muted:#5b6674; --line:#d4d9df;
+  --accent:#1f5fbf; --accent-ink:#ffffff;
+  --imm:#14808f; --bcs:#b4601a; --both:#5a6476;
+  --high:#c2352b; --med:#a8700f; --low:#7a8492; --ok:#2f7d4a;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11151a; --surface:#1a2028; --sunk:#151a21; --ink:#e6eaef; --muted:#97a2b0; --line:#2c3541;
+  --accent:#6f9cf0; --accent-ink:#0d1420;
+  --imm:#4cb8c8; --bcs:#e39a55; --both:#9aa5b6;
+  --high:#ef6c61; --med:#e0b04f; --low:#8a95a3; --ok:#5fbf80; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151a; --surface:#1a2028; --sunk:#151a21; --ink:#e6eaef; --muted:#97a2b0; --line:#2c3541;
+  --accent:#6f9cf0; --accent-ink:#0d1420;
+  --imm:#4cb8c8; --bcs:#e39a55; --both:#9aa5b6;
+  --high:#ef6c61; --med:#e0b04f; --low:#8a95a3; --ok:#5fbf80; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);margin:0}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:0 64px}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.01em;line-height:1.05;margin:0;text-wrap:balance}
+h1{font-size:clamp(30px,6vw,44px);text-transform:uppercase}
+h2{font-size:22px;text-transform:uppercase}
+h3{font-size:18px}
+.eyebrow{font:600 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mono,.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding-block:22px 14px}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--low)}
+.status.live i{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.status.off i{background:var(--high)}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;overflow-x:auto;padding-block:8px;border-bottom:1px solid var(--line);margin-bottom:18px;scrollbar-width:none}
+nav.tabs button{flex:0 0 auto;border:0;background:none;padding:8px 14px;border-radius:8px;font:700 16px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+nav.tabs .count{font:500 11px var(--mono);margin-left:6px;opacity:.75}
+
+.grid{display:grid;gap:16px}
+@media (min-width:820px){.grid.two{grid-template-columns:1.15fr .85fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel > header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.fact{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.fact b{font:700 26px/1 var(--display)}
+.fact span{font-size:12.5px;color:var(--muted)}
+.note{font-size:13.5px;color:var(--muted);margin:12px 0 0}
+.note strong{color:var(--ink)}
+
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{background:var(--sunk);border-radius:8px;padding:12px}
+.stat b{display:block;font:700 30px/1 var(--display)}
+.stat span{font-size:12.5px;color:var(--muted)}
+.stat.alert b{color:var(--high)}
+.bar{height:8px;background:var(--sunk);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .3s}
+
+/* who / priority chips */
+.chip{display:inline-flex;align-items:center;gap:5px;font:600 11px/1 var(--body);letter-spacing:.04em;text-transform:uppercase;padding:4px 7px;border-radius:5px;border:1px solid currentColor;white-space:nowrap}
+.who-imm{color:var(--imm)} .who-bcs{color:var(--bcs)} .who-both{color:var(--both)}
+.pri{width:4px;align-self:stretch;border-radius:4px;flex:none}
+.pri-high{background:var(--high)} .pri-med{background:var(--med)} .pri-low{background:var(--low);opacity:.5}
+.due{font:500 12px var(--mono);color:var(--muted);white-space:nowrap}
+.due.over{color:var(--high)} .due.soon{color:var(--med)}
+
+/* task rows */
+.list{display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid var(--line);min-width:0}
+.row:first-child{border-top:0}
+.row .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+.row .t{overflow-wrap:anywhere}
+.row .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.row.done .t{text-decoration:line-through;color:var(--muted)}
+.check{flex:none;width:24px;height:24px;border-radius:6px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;padding:0}
+.check svg{width:14px;height:14px;opacity:0}
+.row.done .check{background:var(--ok);border-color:var(--ok)}
+.row.done .check svg{opacity:1;stroke:#fff}
+.notes-flag{font-size:12px;color:var(--muted)}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg button{border:0;background:none;padding:6px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--sunk);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.quick{display:flex;gap:8px;margin-bottom:14px}
+.quick input{flex:1;min-width:0}
+input[type=text],input[type=number],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
+textarea{min-height:80px;resize:vertical}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600;font-size:14px;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--high)}
+.btn.danger.armed{background:var(--high);border-color:var(--high);color:#fff}
+.btn.small{padding:6px 10px;font-size:13px}
+.cat{margin-bottom:16px}
+.cat > h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-bottom:6px;border-bottom:2px solid var(--ink);margin-bottom:2px}
+.cat > h3 .num{font-size:12px;color:var(--muted);font-weight:500}
+.empty{padding:22px 10px;text-align:center;color:var(--muted);font-size:14px}
+
+/* timeline */
+.month{margin-bottom:20px}
+.month h3{margin-bottom:8px;color:var(--muted)}
+.tl{position:relative;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.tl::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--line)}
+.tl-item{position:relative;display:flex;gap:10px;align-items:baseline;min-width:0}
+.tl-item::before{content:"";position:absolute;left:-19px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--muted)}
+.tl-item.mile::before{width:14px;height:14px;left:-21px;top:4px;border-radius:3px;transform:rotate(45deg);background:var(--accent);border-color:var(--accent)}
+.tl-item.mile.done::before{background:var(--ok);border-color:var(--ok)}
+.tl-item.task.done::before{background:var(--ok);border-color:var(--ok)}
+.tl-item .d{font:500 12px var(--mono);color:var(--muted);width:52px;flex:none}
+.tl-item .x{flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;cursor:pointer}
+.tl-item.mile .x{font-weight:600}
+.tl-item.done .x{color:var(--muted);text-decoration:line-through}
+.tl-item.today::before{display:none}
+.tl-item.today .x{font:600 12px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--high);cursor:default}
+
+/* bays */
+.plan{border:3px solid var(--ink);border-radius:4px;display:grid;grid-template-rows:auto 1fr auto;gap:0;overflow:hidden;background:var(--sunk)}
+.side-label{font:600 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center;padding:6px}
+.bayrow{display:grid;gap:8px;padding:8px}
+.bayrow.back{grid-template-columns:repeat(3,1fr)}
+.bayrow.front{grid-template-columns:2fr 1fr 1fr}
+.floor{min-height:40px;display:grid;place-items:center;color:var(--muted);font-size:12px;letter-spacing:.1em;text-transform:uppercase;border-block:1px dashed var(--line)}
+.bay{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 10px 10px;text-align:left;display:flex;flex-direction:column;gap:6px;min-height:118px;min-width:0}
+.bay .door{position:absolute;left:10%;right:10%;height:5px;border-radius:2px;background:repeating-linear-gradient(90deg,var(--ink) 0 6px,transparent 6px 9px)}
+.bayrow.back .bay .door{top:-1px}
+.bayrow.front .bay .door{bottom:-1px}
+.bay .name{font:700 17px/1 var(--display);text-transform:uppercase;letter-spacing:.03em}
+.bay .use{font-size:13px;overflow-wrap:anywhere}
+.bay .use.none{color:var(--muted);font-style:italic}
+.bay[data-who="imm"]{border-color:var(--imm);box-shadow:inset 0 0 0 1px var(--imm)}
+.bay[data-who="bcs"]{border-color:var(--bcs);box-shadow:inset 0 0 0 1px var(--bcs)}
+.bay[data-who="both"]{border-color:var(--both)}
+.bay.lounge{background:repeating-linear-gradient(135deg,var(--surface) 0 10px,var(--sunk) 10px 11px)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+@media (max-width:560px){.bayrow.front{grid-template-columns:1fr 1fr}.bayrow.front .bay:first-child{grid-column:1/-1}.bayrow.back{grid-template-columns:1fr}.bay{min-height:0}}
+
+/* budget */
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 6px;border-bottom:2px solid var(--ink)}
+td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--sunk)}
+tfoot td{font-weight:600;border-bottom:0;border-top:2px solid var(--ink)}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.split .stat b{font-size:28px}
+
+/* editor */
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+dialog::backdrop{background:rgb(10 14 20 / .55)}
+dialog form{display:flex;flex-direction:column;gap:12px;padding:20px}
+dialog label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted)}
+dialog .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+dialog .acts{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:6px}
+dialog .acts .right{display:flex;gap:8px;margin-left:auto}
+
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100vw - 32px)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">BCS &amp; Immaculate Detailing</div>
+      <h1>The New Shop</h1>
+    </div>
+    <span id="status" class="status"><i></i><span>Connecting…</span></span>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="overview">Overview</button>
+    <button role="tab" data-tab="tasks">Checklist<span class="count" id="c-tasks"></span></button>
+    <button role="tab" data-tab="timeline">Timeline</button>
+    <button role="tab" data-tab="bays">Bays</button>
+    <button role="tab" data-tab="budget">Budget</button>
+  </nav>
+
+  <!-- OVERVIEW -->
+  <section data-pane="overview" class="grid two">
+    <div class="panel">
+      <header><h2>The deal from Rob</h2><span class="eyebrow">Landlord terms</span></header>
+      <div class="facts">
+        <div class="fact"><b class="num">4,000+</b><span>sq ft (Rob's estimate, measure it)</span></div>
+        <div class="fact"><b class="num">$3,100</b><span>per month, rate since Apr 1, 2026</span></div>
+        <div class="fact"><b class="num">$1,550</b><span>each at a 50/50 split</span></div>
+        <div class="fact"><b class="num">5 doors</b><span>3 back, 2 front + lounge &amp; loft</span></div>
+      </div>
+      <p class="note">Current tenant's 5-year lease runs to <strong>3/31/27</strong>. Rob will let him break it early if you take the space over. The move also gets you a <strong>larger sign out front</strong>.</p>
+      <p class="note">Fallback: <strong>505 G&amp;H</strong>, 2,000 sq ft at $1,600/mo. That's <span class="mono">$0.80</span>/sq ft against <span class="mono">$0.78</span>/sq ft for the big building, so the shared space is the better rate and twice the room.</p>
+    </div>
+    <div class="panel">
+      <header><h2>Progress</h2><span class="eyebrow" id="today-label"></span></header>
+      <div class="stats" id="stats"></div>
+      <div class="bar" aria-hidden="true"><i id="bar" style="width:0"></i></div>
+      <p class="note" id="next-mile"></p>
+    </div>
+    <div class="panel" style="grid-column:1/-1">
+      <header><h2>Up next</h2><button class="btn small" data-goto="tasks">Open checklist</button></header>
+      <div class="list" id="upnext"></div>
+    </div>
+  </section>
+
+  <!-- TASKS -->
+  <section data-pane="tasks" hidden>
+    <form class="quick" id="quick">
+      <input id="quick-title" type="text" placeholder="Add a task and press Enter" autocomplete="off">
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+    <div class="toolbar">
+      <div class="seg" id="f-who" aria-label="Owner">
+        <button data-v="all" aria-pressed="true">Everyone</button>
+        <button data-v="imm">Immaculate</button>
+        <button data-v="bcs">BCS / Sam</button>
+        <button data-v="both">Both</button>
+      </div>
+      <div class="seg" id="f-pri" aria-label="Priority">
+        <button data-v="all" aria-pressed="true">All</button>
+        <button data-v="high">High</button>
+        <button data-v="med">Med</button>
+        <button data-v="low">Low</button>
+      </div>
+      <div class="seg" id="f-done">
+        <button data-v="open" aria-pressed="true">Open</button>
+        <button data-v="all">All</button>
+        <button data-v="done">Done</button>
+      </div>
+    </div>
+    <div id="tasklist"></div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section data-pane="timeline" hidden>
+    <div class="toolbar"><button class="btn primary" id="add-mile">Add milestone</button><span class="note" style="margin:0">Diamonds are milestones. Dots are checklist items with a due date.</span></div>
+    <div class="panel" id="timeline"></div>
+  </section>
+
+  <!-- BAYS -->
+  <section data-pane="bays" hidden>
+    <div class="panel">
+      <header><h2>Floor plan</h2><span class="eyebrow">Tap a bay to assign it</span></header>
+      <div class="plan">
+        <div>
+          <div class="side-label">Back side · 3 garage doors</div>
+          <div class="bayrow back" id="row-back"></div>
+        </div>
+        <div class="floor">Shop floor</div>
+        <div>
+          <div class="bayrow front" id="row-front"></div>
+          <div class="side-label">Front side · 2 garage doors · parking lot</div>
+        </div>
+      </div>
+      <div class="legend">
+        <span class="chip who-imm">Immaculate</span><span class="chip who-bcs">BCS / Sam</span><span class="chip who-both">Shared</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUDGET -->
+  <section data-pane="budget" hidden>
+    <div class="split" id="split"></div>
+    <div class="panel">
+      <header><h2>Costs</h2><button class="btn primary small" id="add-cost">Add cost</button></header>
+      <div class="tablewrap" id="costs"></div>
+    </div>
+  </section>
+</div>
+
+<dialog id="editor"><form id="edit-form" method="dialog"></form></dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const CATS=[["lease","Lease & landlord"],["build","Build-out & repairs"],["util","Utilities & services"],["move","Equipment & move"],["sign","Signage & marketing"],["admin","Admin & insurance"]];
+const PRI=[["high","High"],["med","Medium"],["low","Low"]];
+const WHO=[["both","Both"],["imm","Immaculate"],["bcs","BCS / Sam"]];
+const BAYWHO=[["","Unassigned"],["imm","Immaculate"],["bcs","BCS / Sam"],["both","Shared"]];
+const KINDS=[["once","One-time"],["monthly","Monthly"]];
+const SPLITS=[["5050","50/50"],["imm","Immaculate only"],["bcs","BCS only"]];
+const BAYS=[
+  {id:"back-1",row:"back",name:"Back door 1"},{id:"back-2",row:"back",name:"Back door 2"},{id:"back-3",row:"back",name:"Back door 3"},
+  {id:"front-1",row:"front",name:"Front door 1"},{id:"front-2",row:"front",name:"Front door 2"},{id:"lounge",row:"front",name:"Lounge + loft"}
+];
+const LBL=Object.fromEntries([...CATS,...PRI,...KINDS].map(([v,l])=>[v,l]));
+const WHOLBL={imm:"Immaculate",bcs:"BCS / Sam",both:"Both"};
+const PRANK={high:0,med:1,low:2};
+
+const S={tasks:[],miles:[],costs:[],bays:[],loaded:false};
+const F={who:"all",pri:"all",done:"open"};
+let db=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=n=>"$"+(Math.round((+n||0)*100)/100).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:2});
+const todayISO=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const parse=iso=>{const [y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d)};
+const daysFrom=iso=>Math.round((parse(iso)-parse(todayISO()))/864e5);
+const shortDate=iso=>parse(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,3200)}
+function setStatus(kind,text){const s=$("#status");s.className="status "+kind;s.lastElementChild.textContent=text}
+function fail(e){console.error(e);toast(e&&e.code==="invalid_argument"?"You don't have edit access. Ask the owner to share it with you as an Editor.":"Couldn't save. Check your connection and try again.")}
+
+/* ---------- tabs ---------- */
+function showTab(name){
+  document.querySelectorAll("[data-pane]").forEach(p=>p.hidden=p.dataset.pane!==name);
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===name));
+  try{localStorage.setItem("tab",name)}catch(e){}
+}
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b)showTab(b.dataset.tab)});
+document.addEventListener("click",e=>{const g=e.target.closest("[data-goto]");if(g)showTab(g.dataset.goto)});
+(()=>{let t=(location.hash||"").slice(1);if(!document.querySelector(`[data-pane="${t}"]`)){try{t=localStorage.getItem("tab")}catch(e){}}showTab(document.querySelector(`[data-pane="${t}"]`)?t:"overview")})();
+
+/* ---------- filters ---------- */
+for(const [id,key] of [["#f-who","who"],["#f-pri","pri"],["#f-done","done"]]){
+  $(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;F[key]=b.dataset.v;$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));renderTasks()});
+}
+
+/* ---------- task helpers ---------- */
+const sortTasks=a=>[...a].sort((x,y)=>(!!x.done-!!y.done)||((PRANK[x.pri]??1)-(PRANK[y.pri]??1))||((x.due||"9999")<(y.due||"9999")?-1:(x.due||"9999")>(y.due||"9999")?1:0)||((x.created||0)-(y.created||0)));
+function dueHTML(t){
+  if(!t.due)return"";const n=daysFrom(t.due);
+  const cls=!t.done&&n<0?"over":!t.done&&n<=7?"soon":"";
+  const tail=t.done?"":n<0?` · ${-n}d late`:n===0?" · today":n<=7?` · ${n}d`:"";
+  return `<span class="due ${cls}">${shortDate(t.due)}${tail}</span>`;
+}
+const CHECK=`<svg viewBox="0 0 16 16" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>`;
+function taskRow(t,showCat){
+  return `<div class="row${t.done?" done":""}">
+    <span class="pri pri-${esc(t.pri||"med")}" title="${esc(LBL[t.pri]||"Medium")} priority"></span>
+    <button class="check" data-toggle="tasks:${esc(t.id)}" aria-label="${t.done?"Mark not done":"Mark done"}">${CHECK}</button>
+    <button class="body" data-edit="tasks:${esc(t.id)}">
+      <span class="t">${esc(t.title)}</span>
+      <span class="meta"><span class="chip who-${esc(t.who||"both")}">${esc(WHOLBL[t.who]||"Both")}</span>${dueHTML(t)}${showCat?`<span class="notes-flag">${esc(LBL[t.cat]||"")}</span>`:""}${t.notes?`<span class="notes-flag">· has notes</span>`:""}</span>
+    </button></div>`;
+}
+
+/* ---------- renders ---------- */
+function renderOverview(){
+  const total=S.tasks.length,done=S.tasks.filter(t=>t.done).length;
+  const open=S.tasks.filter(t=>!t.done);
+  const high=open.filter(t=>t.pri==="high").length;
+  const late=open.filter(t=>t.due&&daysFrom(t.due)<0).length;
+  const week=open.filter(t=>t.due&&daysFrom(t.due)>=0&&daysFrom(t.due)<=7).length;
+  $("#today-label").textContent=new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+  $("#stats").innerHTML=`
+    <div class="stat"><b class="num">${done}<small style="font-size:18px;color:var(--muted)">/${total}</small></b><span>tasks done</span></div>
+    <div class="stat${high?" alert":""}"><b class="num">${high}</b><span>high priority open</span></div>
+    <div class="stat${late?" alert":""}"><b class="num">${late}</b><span>overdue</span></div>
+    <div class="stat"><b class="num">${week}</b><span>due in the next 7 days</span></div>`;
+  $("#bar").style.width=total?(done/total*100)+"%":"0";
+  const nm=S.miles.filter(m=>!m.done&&m.date).sort((a,b)=>a.date<b.date?-1:1)[0];
+  $("#next-mile").innerHTML=nm?`Next milestone: <strong>${esc(nm.title)}</strong> · <span class="mono">${shortDate(nm.date)}</span> (${daysFrom(nm.date)<0?(-daysFrom(nm.date))+" days ago":daysFrom(nm.date)+" days out"})`:"No upcoming milestones. Add your target move-in date on the Timeline tab.";
+  const up=sortTasks(open).slice(0,7);
+  $("#upnext").innerHTML=up.length?up.map(t=>taskRow(t,true)).join(""):`<div class="empty">${S.loaded?"Nothing open. Add the next task on the Checklist tab.":"Loading the plan…"}</div>`;
+}
+function renderTasks(){
+  $("#c-tasks").textContent=S.tasks.filter(t=>!t.done).length||"";
+  let list=S.tasks.filter(t=>(F.who==="all"||t.who===F.who)&&(F.pri==="all"||t.pri===F.pri)&&(F.done==="all"||(F.done==="done")===!!t.done));
+  const html=CATS.map(([c,l])=>{const items=sortTasks(list.filter(t=>(t.cat||"admin")===c));if(!items.length)return"";
+    const all=S.tasks.filter(t=>(t.cat||"admin")===c);
+    return `<div class="cat"><h3>${esc(l)}<span class="num">${all.filter(t=>t.done).length}/${all.length} done</span></h3><div class="list">${items.map(t=>taskRow(t,false)).join("")}</div></div>`}).join("");
+  $("#tasklist").innerHTML=`<div class="panel">${html||`<div class="empty">${S.loaded?"No tasks match these filters.":"Loading the plan…"}</div>`}</div>`;
+}
+function renderTimeline(){
+  const t0=todayISO();
+  const items=[...S.miles.filter(m=>m.date).map(m=>({k:"mile",coll:"miles",id:m.id,date:m.date,title:m.title,done:m.done})),
+               ...S.tasks.filter(t=>t.due).map(t=>({k:"task",coll:"tasks",id:t.id,date:t.due,title:t.title,done:t.done}))];
+  items.push({k:"today",date:t0,title:"Today"});
+  items.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.k==="today"?-1:b.k==="today"?1:a.k==="mile"?-1:1));
+  const months=new Map();
+  for(const it of items){const key=it.date.slice(0,7);if(!months.has(key))months.set(key,[]);months.get(key).push(it)}
+  let html="";
+  for(const [key,arr] of months){
+    const label=parse(key+"-01").toLocaleDateString("en-US",{month:"long",year:"numeric"});
+    html+=`<div class="month"><h3>${label}</h3><div class="tl">${arr.map(it=>it.k==="today"
+      ?`<div class="tl-item today"><span class="d">${shortDate(it.date)}</span><span class="x">Today</span></div>`
+      :`<div class="tl-item ${it.k}${it.done?" done":""}"><span class="d">${shortDate(it.date)}</span><button class="x" data-edit="${it.coll}:${esc(it.id)}">${esc(it.title)}</button></div>`).join("")}</div></div>`;
+  }
+  $("#timeline").innerHTML=items.length>1?html:`<div class="empty">${S.loaded?"No dates yet. Add a milestone, or give checklist items a due date.":"Loading the plan…"}</div>`;
+}
+function renderBays(){
+  const by=Object.fromEntries(S.bays.map(b=>[b.id,b]));
+  const card=b=>{const d=by[b.id]||{};const who=d.who||"";
+    return `<button class="bay${b.id==="lounge"?" lounge":""}" data-who="${esc(who)}" data-edit="bays:${b.id}">
+      ${b.id==="lounge"?"":`<span class="door"></span>`}
+      <span class="name">${esc(b.name)}</span>
+      ${who?`<span class="chip who-${esc(who)}">${esc(who==="both"?"Shared":WHOLBL[who])}</span>`:""}
+      <span class="use${d.use?"":" none"}">${esc(d.use||(b.id==="lounge"?"Customer waiting area, loft above":"Not assigned yet"))}</span>
+      ${d.notes?`<span class="notes-flag">${esc(d.notes)}</span>`:""}
+    </button>`};
+  $("#row-back").innerHTML=BAYS.filter(b=>b.row==="back").map(card).join("");
+  $("#row-front").innerHTML=BAYS.filter(b=>b.row==="front").map(card).join("");
+}
+function renderBudget(){
+  const share=(c,who)=>{const a=+c.amount||0;const s=c.split||"5050";return s==="5050"?a/2:s===who?a:0};
+  const sum=(kind,who)=>S.costs.filter(c=>(c.kind||"once")===kind).reduce((n,c)=>n+(who?share(c,who):(+c.amount||0)),0);
+  $("#split").innerHTML=`
+    <div class="stat"><b class="num">${money(sum("monthly"))}</b><span>monthly, total</span></div>
+    <div class="stat"><b class="num" style="color:var(--imm)">${money(sum("monthly","imm"))}</b><span>Immaculate per month</span></div>
+    <div class="stat"><b class="num" style="color:var(--bcs)">${money(sum("monthly","bcs"))}</b><span>BCS per month</span></div>
+    <div class="stat"><b class="num">${money(sum("once"))}</b><span>one-time move costs · ${money(sum("once","imm"))} / ${money(sum("once","bcs"))}</span></div>`;
+  const rows=[...S.costs].sort((a,b)=>((a.kind||"once")===(b.kind||"once")?0:(a.kind==="monthly"?-1:1))||((b.amount||0)-(a.amount||0)));
+  if(!rows.length){$("#costs").innerHTML=`<div class="empty">${S.loaded?"No costs yet. Add rent, deposit, utilities and build-out quotes to see each side's share.":"Loading…"}</div>`;return}
+  $("#costs").innerHTML=`<table><thead><tr><th>Item</th><th>Type</th><th>Split</th><th class="r">Amount</th><th class="r">Immaculate</th><th class="r">BCS</th></tr></thead><tbody>
+    ${rows.map(c=>`<tr class="click" data-edit="costs:${esc(c.id)}" tabindex="0"><td>${esc(c.item)}${c.notes?`<div class="notes-flag">${esc(c.notes)}</div>`:""}</td><td>${esc(LBL[c.kind||"once"])}</td><td>${esc((SPLITS.find(s=>s[0]===(c.split||"5050"))||[])[1])}</td><td class="r num">${money(c.amount)}</td><td class="r num">${money(share(c,"imm"))}</td><td class="r num">${money(share(c,"bcs"))}</td></tr>`).join("")}
+  </tbody></table>`;
+}
+function render(){renderOverview();renderTasks();renderTimeline();renderBays();renderBudget()}
+
+/* ---------- editing ---------- */
+const SCHEMA={
+  tasks:{name:"task",fields:[["title","text","Task"],["cat","select","Category",CATS],["pri","select","Priority",PRI],["who","select","Who owns it",WHO],["due","date","Due date"],["notes","textarea","Notes"]]},
+  miles:{name:"milestone",fields:[["title","text","Milestone"],["date","date","Date"],["notes","textarea","Notes"]]},
+  costs:{name:"cost",fields:[["item","text","Item"],["amount","number","Amount ($)"],["kind","select","Type",KINDS],["split","select","Who pays",SPLITS],["notes","textarea","Notes"]]},
+  bays:{name:"bay",fields:[["use","text","Used for"],["who","select","Assigned to",BAYWHO],["notes","textarea","Notes"]]}
+};
+function field([k,type,label,opts],v){
+  const id="f-"+k;v=v??"";
+  if(type==="select")return `<label for="${id}">${label}<select id="${id}" name="${k}">${opts.map(([o,l])=>`<option value="${o}"${o===v?" selected":""}>${esc(l)}</option>`).join("")}</select></label>`;
+  if(type==="textarea")return `<label for="${id}">${label}<textarea id="${id}" name="${k}">${esc(v)}</textarea></label>`;
+  return `<label for="${id}">${label}<input id="${id}" name="${k}" type="${type}" ${type==="number"?'step="0.01" inputmode="decimal"':""} value="${esc(v)}"${k==="title"||k==="item"?" required":""}></label>`;
+}
+function openEditor(coll,id,defaults={}){
+  const sc=SCHEMA[coll];const list=S[coll];
+  const cur=id?(list.find(x=>x.id===id)||(coll==="bays"?{id}:null)):null;
+  if(id&&!cur)return;
+  const data={...defaults,...(cur||{})};
+  const bay=coll==="bays"?BAYS.find(b=>b.id===id):null;
+  const title=bay?bay.name:(cur?"Edit "+sc.name:"New "+sc.name);
+  const fs=sc.fields.map(f=>field(f,data[f[0]]));
+  // pair the short selects side by side
+  let body="";for(let i=0;i<fs.length;i++){const f=sc.fields[i];const n=sc.fields[i+1];
+    if(f[1]==="select"||f[1]==="date"||f[1]==="number"){if(n&&(n[1]==="select"||n[1]==="date"||n[1]==="number")){body+=`<div class="pair">${fs[i]}${fs[i+1]}</div>`;i++;continue}}
+    body+=fs[i]}
+  const canDelete=cur&&coll!=="bays";
+  $("#edit-form").innerHTML=`<h2>${esc(title)}</h2>${body}
+    <div class="acts">${canDelete?`<button type="button" class="btn danger" id="del">Delete</button>`:""}
+    <div class="right"><button type="button" class="btn" id="cancel">Cancel</button><button type="submit" class="btn primary">Save</button></div></div>`;
+  const dlg=$("#editor");
+  $("#cancel").onclick=()=>dlg.close();
+  const del=$("#del");
+  if(del)del.onclick=async()=>{
+    if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Tap again to delete";return}
+    dlg.close();if(!db)return toast("Not connected, nothing was deleted.");
+    try{await db.collection(coll).doc(id).delete();toast("Deleted")}catch(e){fail(e)}
+  };
+  $("#edit-form").onsubmit=async e=>{
+    e.preventDefault();
+    const vals=Object.fromEntries(new FormData(e.target).entries());
+    if("amount" in vals)vals.amount=parseFloat(vals.amount)||0;
+    for(const k in vals)if(typeof vals[k]==="string")vals[k]=vals[k].trim();
+    dlg.close();
+    if(!db)return toast("Not connected, so this wasn't saved.");
+    try{
+      if(id){const {id:_,...rest}=cur;await db.collection(coll).doc(id).set({...rest,...vals,updated:Date.now()})}
+      else await db.collection(coll).add({...vals,done:false,created:Date.now()});
+      toast("Saved");
+    }catch(err){fail(err)}
+  };
+  dlg.showModal();
+  const first=dlg.querySelector("input,select,textarea");if(first&&!cur)first.focus();
+}
+document.addEventListener("click",async e=>{
+  const ed=e.target.closest("[data-edit]");
+  if(ed){const [c,id]=ed.dataset.edit.split(":");openEditor(c,id);return}
+  const tg=e.target.closest("[data-toggle]");
+  if(tg){const [c,id]=tg.dataset.toggle.split(":");const it=S[c].find(x=>x.id===id);if(!it||!db)return toast("Not connected.");
+    try{await db.collection(c).doc(id).update({done:!it.done,updated:Date.now()})}catch(err){fail(err)}}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"){const r=e.target.closest&&e.target.closest("tr[data-edit]");if(r){const [c,id]=r.dataset.edit.split(":");openEditor(c,id)}}});
+$("#quick").addEventListener("submit",async e=>{
+  e.preventDefault();const inp=$("#quick-title");const title=inp.value.trim();if(!title)return;
+  if(!db)return toast("Not connected, so this wasn't saved.");
+  inp.value="";
+  try{await db.collection("tasks").add({title,cat:"admin",pri:F.pri==="all"?"med":F.pri,who:F.who==="all"?"both":F.who,due:"",notes:"",done:false,created:Date.now()});toast("Added. Tap it to set category and due date.")}catch(err){inp.value=title;fail(err)}
+});
+$("#add-mile").onclick=()=>openEditor("miles",null,{date:todayISO()});
+$("#add-cost").onclick=()=>openEditor("costs",null,{kind:"once",split:"5050"});
+
+/* ---------- live data ---------- */
+render();
+(async()=>{
+  try{db=window.claude&&window.claude.use?await window.claude.use("db"):null}catch(e){db=null}
+  if(!db){setStatus("off","Offline · view only");S.loaded=true;render();return}
+  setStatus("live","Live");
+  const got=new Set();
+  for(const c of ["tasks","miles","costs","bays"]){
+    db.collection(c).onSnapshot(s=>{
+      S[c]=s.docs.map(d=>({id:d.id,...d.data()}));got.add(c);if(got.size===4)S.loaded=true;render();
+    },err=>{console.error(err);setStatus("off","Disconnected · reload");});
+  }
+})();
+</script>
