@@ -1,0 +1,2 @@
+GSAP 3.15.0 is used under the GSAP Standard "no charge" license.
+Full text: https://gsap.com/standard-license

@@ -2,6 +2,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="vendor/lenis.css">
+<script src="vendor/gsap.min.js" defer></script>
+<script src="vendor/ScrollTrigger.min.js" defer></script>
+<script src="vendor/lenis.min.js" defer></script>
 <style>
 /* Layout: a shop work-order board. Sticky tab strip, one column on phones, two on desktop. */
 :root{
@@ -317,10 +321,25 @@ function showTab(name){
   document.querySelectorAll("[data-pane]").forEach(p=>p.hidden=p.dataset.pane!==name);
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===name));
   try{localStorage.setItem("tab",name)}catch(e){}
+  if(window.gsap)animatePane();
 }
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b)showTab(b.dataset.tab)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-goto]");if(g)showTab(g.dataset.goto)});
 (()=>{let t=(location.hash||"").slice(1);if(!document.querySelector(`[data-pane="${t}"]`)){try{t=localStorage.getItem("tab")}catch(e){}}showTab(document.querySelector(`[data-pane="${t}"]`)?t:"overview")})();
+
+/* ---------- motion (GSAP + Lenis, vendored in ./vendor) ---------- */
+const MOTION=!matchMedia("(prefers-reduced-motion:reduce)").matches;
+window.addEventListener("DOMContentLoaded",()=>{
+  if(!MOTION||!window.gsap)return;
+  gsap.registerPlugin(ScrollTrigger);
+  if(window.Lenis){const lenis=new Lenis({lerp:.12});lenis.on("scroll",ScrollTrigger.update);gsap.ticker.add(t=>lenis.raf(t*1000));gsap.ticker.lagSmoothing(0)}
+  animatePane();
+});
+function animatePane(){
+  if(!MOTION||!window.gsap)return;
+  const pane=document.querySelector("[data-pane]:not([hidden])");if(!pane)return;
+  gsap.fromTo(pane.querySelectorAll(":scope > .panel, :scope > * > .panel"),{opacity:0,y:14},{opacity:1,y:0,duration:.4,stagger:.06,ease:"power2.out",overwrite:true,clearProps:"transform"});
+}
 
 /* ---------- filters ---------- */
 for(const [id,key] of [["#f-who","who"],["#f-pri","pri"],["#f-done","done"]]){
