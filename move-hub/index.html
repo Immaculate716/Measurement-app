@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="vendor/lenis.css">
 <script src="vendor/gsap.min.js" defer></script>
 <script src="vendor/ScrollTrigger.min.js" defer></script>
+<script src="vendor/SplitText.min.js" defer></script>
 <script src="vendor/lenis.min.js" defer></script>
 <style>
 /* Layout: a shop work-order board. Sticky tab strip, one column on phones, two on desktop. */
@@ -30,7 +31,8 @@
   --high:#ef6c61; --med:#e0b04f; --low:#8a95a3; --ok:#5fbf80; color-scheme:dark}
 
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);margin:0}
+html{background:var(--bg)}
+body{background:transparent;color:var(--ink);font:15px/1.5 var(--body);margin:0}
 .wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:0 64px}
 h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.01em;line-height:1.05;margin:0;text-wrap:balance}
 h1{font-size:clamp(30px,6vw,44px);text-transform:uppercase}
@@ -71,7 +73,7 @@ nav.tabs .count{font:500 11px var(--mono);margin-left:6px;opacity:.75}
 .stat span{font-size:12.5px;color:var(--muted)}
 .stat.alert b{color:var(--high)}
 .bar{height:8px;background:var(--sunk);border-radius:99px;overflow:hidden;margin-top:8px}
-.bar i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .3s}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:99px}
 
 /* who / priority chips */
 .chip{display:inline-flex;align-items:center;gap:5px;font:600 11px/1 var(--body);letter-spacing:.04em;text-transform:uppercase;padding:4px 7px;border-radius:5px;border:1px solid currentColor;white-space:nowrap}
@@ -172,10 +174,94 @@ dialog .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 dialog .acts{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:6px}
 dialog .acts .right{display:flex;gap:8px;margin-left:auto}
 
-.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100vw - 32px)}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);animation:toast-in .3s cubic-bezier(.23,1,.32,1);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100vw - 32px)}
+
+/* ================= motion layer =================
+   Everything below is transform/opacity only. Pointer-only effects sit behind
+   (hover:hover) and (pointer:fine); heavy blur is reduced on narrow screens;
+   reduced-motion users get the static page. */
+@keyframes toast-in{from{opacity:0;transform:translate(-50%,12px)}}
+
+/* 8. aurora background + static grain */
+.aurora{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.aurora i{position:absolute;width:52vmax;height:52vmax;border-radius:50%;filter:blur(70px);opacity:.26;will-change:transform;animation:drift 28s ease-in-out infinite alternate}
+.aurora i:nth-child(1){background:var(--imm);top:-22vmax;left:-14vmax}
+.aurora i:nth-child(2){background:var(--bcs);bottom:-26vmax;right:-16vmax;animation-duration:34s;animation-delay:-11s}
+.aurora i:nth-child(3){background:var(--accent);top:34vh;left:38vw;width:34vmax;height:34vmax;opacity:.14;animation-duration:40s;animation-delay:-23s}
+@keyframes drift{to{transform:translate3d(9vw,7vh,0) scale(1.18)}}
+.aurora::after{content:"";position:absolute;inset:0;opacity:.07;mix-blend-mode:multiply;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .8 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .aurora::after{mix-blend-mode:screen;opacity:.09}:root:not([data-theme="light"]) .aurora i{opacity:.2}}
+:root[data-theme="dark"] .aurora::after{mix-blend-mode:screen;opacity:.09}
+:root[data-theme="dark"] .aurora i{opacity:.2}
+.aurora.paused i{animation-play-state:paused}
+@media (max-width:700px){.aurora i{filter:blur(44px);animation-duration:44s}}
+
+/* 3. spotlight cards + press feedback */
+.panel,.stat,.bay,.month.card{position:relative;isolation:isolate}
+@media (hover:hover) and (pointer:fine){
+  .panel::before,.stat::before,.bay::before,.month.card::before,.story::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--accent) 16%,transparent),transparent 62%)}
+  .panel:hover::before,.stat:hover::before,.bay:hover::before,.month.card:hover::before,.story:hover::before{opacity:1}
+  .bay{transition:transform .2s cubic-bezier(.23,1,.32,1),box-shadow .2s}
+  .bay:hover{transform:translateY(-2px)}
+}
+button{transition:transform .12s ease-out,background-color .15s,border-color .15s,color .15s}
+button:active{transform:scale(.97)}
+.row .body:active,.tl-item .x:active{transform:none}
+.btn.primary,[data-goto]{will-change:transform}
+
+/* 1. masked headline reveals (SplitText) */
+h1 .split-char,h2 .split-word{display:inline-block;will-change:transform}
+
+/* 5. "Road to move-in": pinned + scrubbed on desktop, plain reveal on phones */
+.story{position:relative;margin-bottom:18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:clamp(18px,4vw,34px);isolation:isolate}
+.story .plan-line{display:none;position:absolute;right:3%;bottom:4%;width:min(40%,380px);opacity:.4;z-index:-1;pointer-events:none}
+.story .plan-line path{stroke:var(--muted);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;fill:none;stroke-dasharray:1;stroke-dashoffset:0}
+.story-h{font-size:clamp(28px,5vw,42px);margin-top:4px}
+.steps{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:14px}
+@media (min-width:820px){.steps{grid-template-columns:repeat(3,1fr);gap:18px}.story .plan-line{display:block}}
+.step{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:12px;row-gap:4px;align-items:start;padding:14px;border-radius:8px;background:color-mix(in srgb,var(--sunk) 78%,transparent);border:1px solid var(--line)}
+.step .ring{grid-row:1/3;width:52px;height:52px;transform:rotate(-90deg)}
+.step .ring circle{fill:none;stroke-width:7}
+.step .ring .track{stroke:var(--line)}
+.step .ring .fill{stroke:var(--accent);stroke-linecap:round;stroke-dasharray:0 100;transition:stroke-dasharray 1.1s cubic-bezier(.23,1,.32,1)}
+.step.on .ring .fill{stroke-dasharray:calc(var(--p,0)*100) 100}
+.step .k{font:700 12px var(--mono);letter-spacing:.12em;color:var(--muted)}
+.step h3{font-size:19px;text-transform:uppercase;letter-spacing:.02em}
+.step p{grid-column:2;margin:0;font-size:13.5px;color:var(--muted)}
+.step .n{grid-column:2;font:500 12px var(--mono);color:var(--ink)}
+
+/* 6. stacking cards (timeline months) */
+.stack{display:flex;flex-direction:column;gap:14px}
+.month.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin:0;transform-origin:top center}
+.month.card.sticky{position:sticky;top:calc(var(--nav-h,52px) + var(--i,0)*10px)}
+
+/* 7. view transitions for list reorders (filters, done toggles, live edits) */
+::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+::view-transition-group(*){animation-duration:.38s;animation-timing-function:cubic-bezier(.23,1,.32,1)}
+
+/* 9. live ticker with a pause control */
+.ticker{display:flex;align-items:center;gap:6px;border-block:1px solid var(--line);margin-bottom:12px;font:500 12px var(--mono);color:var(--muted)}
+.ticker .win{flex:1;min-width:0;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent)}
+.ticker .track{display:flex;width:max-content;animation:ticker var(--dur,40s) linear infinite;will-change:transform}
+.ticker .track span{padding:8px 0;white-space:nowrap}
+.ticker .track span::after{content:"\25C6";margin:0 16px;font-size:8px;vertical-align:middle;color:var(--accent);opacity:.7}
+.ticker .track strong{color:var(--ink);font-weight:600}
+@keyframes ticker{to{transform:translateX(-50%)}}
+.ticker:hover .track,.ticker.paused .track,.ticker.hidden-tab .track{animation-play-state:paused}
+.ticker-pause{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:6px;width:28px;height:28px;display:grid;place-items:center;padding:0;font-size:10px}
+.ticker-pause[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+@media (prefers-reduced-motion:reduce){
+  .ticker .track{animation:none;width:auto;flex-wrap:wrap}
+  .ticker .track span.dup{display:none}
+  .ticker-pause{display:none}
+  .aurora i{animation:none}
+  .step .ring .fill{transition:none}
+  ::view-transition-group(*){animation:none}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
+<div class="aurora" id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="wrap">
   <header class="top">
     <div>
@@ -184,6 +270,8 @@ dialog .acts .right{display:flex;gap:8px;margin-left:auto}
     </div>
     <span id="status" class="status"><i></i><span>Connecting…</span></span>
   </header>
+
+  <div class="ticker" id="ticker" aria-label="Live summary"><div class="win"><div class="track" id="ticker-track"></div></div><button class="ticker-pause" id="ticker-pause" aria-pressed="false" aria-label="Pause ticker" title="Pause">&#10074;&#10074;</button></div>
 
   <nav class="tabs" role="tablist" id="tabs">
     <button role="tab" data-tab="overview">Overview</button>
@@ -194,14 +282,28 @@ dialog .acts .right{display:flex;gap:8px;margin-left:auto}
   </nav>
 
   <!-- OVERVIEW -->
-  <section data-pane="overview" class="grid two">
+  <section data-pane="overview">
+  <div class="story" id="story" aria-label="Road to move-in">
+    <svg class="plan-line" viewBox="0 0 340 210" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+      <path id="plan-path" pathLength="1" d="M24 24 H316 V186 H24 Z M58 24 v-10 h40 v10 M138 24 v-10 h40 v10 M218 24 v-10 h40 v10 M70 186 v10 h44 v-10 M160 186 v10 h44 v-10 M24 128 H120 V186 M120 128 v-24 h22"/>
+    </svg>
+    <div class="story-in">
+      <div class="story-head"><span class="eyebrow">Road to move-in</span><h2 class="story-h">Three moves. One shop.</h2></div>
+      <ol class="steps">
+        <li class="step" data-step="lease" style="--p:0"><svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="45"/><circle class="fill" cx="50" cy="50" r="45" pathLength="100"/></svg><span class="k">01 · LEASE</span><h3>Lock the lease</h3><p>Terms with Rob, the break clause for the current tenant, signatures.</p><span class="n" id="sn-lease">—</span></li>
+        <li class="step" data-step="build" style="--p:0"><svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="45"/><circle class="fill" cx="50" cy="50" r="45" pathLength="100"/></svg><span class="k">02 · BUILD</span><h3>Build it out</h3><p>Repairs, utilities, the bigger sign out front.</p><span class="n" id="sn-build">—</span></li>
+        <li class="step" data-step="move" style="--p:0"><svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="45"/><circle class="fill" cx="50" cy="50" r="45" pathLength="100"/></svg><span class="k">03 · MOVE</span><h3>Move-in day</h3><p>Equipment, insurance, paperwork, keys.</p><span class="n" id="sn-move">—</span></li>
+      </ol>
+    </div>
+  </div>
+  <div class="grid two">
     <div class="panel">
       <header><h2>The deal from Rob</h2><span class="eyebrow">Landlord terms</span></header>
       <div class="facts">
-        <div class="fact"><b class="num">4,000+</b><span>sq ft (Rob's estimate, measure it)</span></div>
-        <div class="fact"><b class="num">$3,100</b><span>per month, rate since Apr 1, 2026</span></div>
-        <div class="fact"><b class="num">$1,550</b><span>each at a 50/50 split</span></div>
-        <div class="fact"><b class="num">5 doors</b><span>3 back, 2 front + lounge &amp; loft</span></div>
+        <div class="fact"><b class="num" data-count="4000" data-key="sqft" data-suffix="+">4,000+</b><span>sq ft (Rob's estimate, measure it)</span></div>
+        <div class="fact"><b class="num" data-count="3100" data-key="rent" data-fmt="money">$3,100</b><span>per month, rate since Apr 1, 2026</span></div>
+        <div class="fact"><b class="num" data-count="1550" data-key="half" data-fmt="money">$1,550</b><span>each at a 50/50 split</span></div>
+        <div class="fact"><b class="num" data-count="5" data-key="doors" data-suffix=" doors">5 doors</b><span>3 back, 2 front + lounge &amp; loft</span></div>
       </div>
       <p class="note">Current tenant's 5-year lease runs to <strong>3/31/27</strong>. Rob will let him break it early if you take the space over. The move also gets you a <strong>larger sign out front</strong>.</p>
       <p class="note">Fallback: <strong>505 G&amp;H</strong>, 2,000 sq ft at $1,600/mo. That's <span class="mono">$0.80</span>/sq ft against <span class="mono">$0.78</span>/sq ft for the big building, so the shared space is the better rate and twice the room.</p>
@@ -216,6 +318,7 @@ dialog .acts .right{display:flex;gap:8px;margin-left:auto}
       <header><h2>Up next</h2><button class="btn small" data-goto="tasks">Open checklist</button></header>
       <div class="list" id="upnext"></div>
     </div>
+  </div>
   </section>
 
   <!-- TASKS -->
@@ -249,7 +352,7 @@ dialog .acts .right{display:flex;gap:8px;margin-left:auto}
   <!-- TIMELINE -->
   <section data-pane="timeline" hidden>
     <div class="toolbar"><button class="btn primary" id="add-mile">Add milestone</button><span class="note" style="margin:0">Diamonds are milestones. Dots are checklist items with a due date.</span></div>
-    <div class="panel" id="timeline"></div>
+    <div class="stack" id="timeline"></div>
   </section>
 
   <!-- BAYS -->
@@ -327,23 +430,139 @@ $("#tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b)
 document.addEventListener("click",e=>{const g=e.target.closest("[data-goto]");if(g)showTab(g.dataset.goto)});
 (()=>{let t=(location.hash||"").slice(1);if(!document.querySelector(`[data-pane="${t}"]`)){try{t=localStorage.getItem("tab")}catch(e){}}showTab(document.querySelector(`[data-pane="${t}"]`)?t:"overview")})();
 
-/* ---------- motion (GSAP + Lenis, vendored in ./vendor) ---------- */
+/* ---------- motion (GSAP + ScrollTrigger + SplitText + Lenis, vendored in ./vendor) ----------
+   Rules: transform/opacity only; pointer effects only on fine pointers; no smooth-scroll or
+   pinning on touch; everything off under prefers-reduced-motion; data refreshes never
+   re-trigger entrance animations (only tab switches and first load do). */
 const MOTION=!matchMedia("(prefers-reduced-motion:reduce)").matches;
+const FINE=matchMedia("(hover:hover) and (pointer:fine)").matches;
+const vtn=id=>String(id).replace(/[^A-Za-z0-9_-]/g,"_");
+const navH=()=>($("#tabs").offsetHeight||52);
+function vt(fn){if(MOTION&&document.startViewTransition&&S.loaded){document.startViewTransition(fn)}else fn()}
+function setBar(pct){const b=$("#bar");if(MOTION&&window.gsap)gsap.to(b,{width:pct+"%",duration:.9,ease:"power3.out",overwrite:true});else b.style.width=pct+"%"}
+
+/* 4. count-ups: first time a number is seen it counts from 0; later updates tween from the old value */
+const NUMS=new Map();
+function tickNumbers(root=document){
+  root.querySelectorAll("[data-count]").forEach(el=>{
+    const key=el.dataset.key||el.dataset.count,to=+el.dataset.count||0,fmt=el.dataset.fmt,suf=el.dataset.suffix||"";
+    const prev=NUMS.get(key);
+    if(el.closest("[hidden]")){NUMS.set(key,{v:to,shown:false});return}
+    const from=prev&&prev.shown?prev.v:0;NUMS.set(key,{v:to,shown:true});
+    if(!MOTION||!window.gsap||from===to)return;
+    const o={v:from},f=v=>fmt==="money"?money(Math.round(v)):Math.round(v).toLocaleString("en-US")+suf;
+    gsap.to(o,{v:to,duration:.9,ease:"power2.out",onUpdate(){el.textContent=f(o.v)},onComplete(){el.textContent=fmt==="money"?money(to):f(to)}});
+  });
+}
+
+/* 5. story data: per-phase progress rings */
+const PHASES={lease:["lease"],build:["build","util","sign"],move:["move","admin"]};
+function renderStory(){
+  for(const [k,cats] of Object.entries(PHASES)){
+    const all=S.tasks.filter(t=>cats.includes(t.cat||"admin")),done=all.filter(t=>t.done).length;
+    const step=document.querySelector(`.step[data-step="${k}"]`);
+    step.style.setProperty("--p",all.length?done/all.length:0);
+    $("#sn-"+k).textContent=all.length?`${done}/${all.length} done`:(S.loaded?"No tasks yet":"…");
+  }
+}
+
+/* 9. ticker: live summary, duplicated once for the loop; pause button persists */
+function renderTicker({open,late,nm}){
+  const items=[
+    nm?`Next milestone <strong>${esc(nm.title)}</strong> ${daysFrom(nm.date)<0?(-daysFrom(nm.date))+" days ago":daysFrom(nm.date)===0?"today":"in "+daysFrom(nm.date)+" days"}`:"No milestone set yet",
+    `<strong>${open}</strong> tasks open`,late?`<strong>${late}</strong> overdue`:"Nothing overdue",
+    "<strong>$3,100</strong>/mo rent, split 50/50","<strong>4,000+</strong> sq ft","<strong>5</strong> garage doors","Current lease ends <strong>3/31/27</strong>"];
+  const one=items.map(i=>`<span>${i}</span>`).join("");
+  const tr=$("#ticker-track");tr.innerHTML=one+one.replace(/<span>/g,'<span class="dup" aria-hidden="true">');
+  tr.style.setProperty("--dur",Math.max(24,Math.round(tr.scrollWidth/2/55))+"s");
+}
+(()=>{const t=$("#ticker"),b=$("#ticker-pause");let p=false;try{p=localStorage.getItem("ticker")==="paused"}catch(e){}
+  const set=v=>{p=v;t.classList.toggle("paused",p);b.setAttribute("aria-pressed",p);b.innerHTML=p?"&#9654;":"&#10074;&#10074;";b.setAttribute("aria-label",p?"Play ticker":"Pause ticker");try{localStorage.setItem("ticker",p?"paused":"")}catch(e){}};
+  set(p);b.onclick=()=>set(!p);
+  document.addEventListener("visibilitychange",()=>{t.classList.toggle("hidden-tab",document.hidden);$("#aurora").classList.toggle("paused",document.hidden)});
+})();
+
+/* 3. spotlight: one delegated listener writes the pointer position into CSS vars */
+if(FINE)document.addEventListener("pointermove",e=>{const c=e.target.closest(".panel,.stat,.bay,.month.card,.story");if(!c)return;const r=c.getBoundingClientRect();c.style.setProperty("--mx",(e.clientX-r.left)+"px");c.style.setProperty("--my",(e.clientY-r.top)+"px")},{passive:true});
+
+let revealTriggers=[],stackTriggers=[],MREADY=false;
 window.addEventListener("DOMContentLoaded",()=>{
   if(!MOTION||!window.gsap)return;
-  gsap.registerPlugin(ScrollTrigger);
-  if(window.Lenis){const lenis=new Lenis({lerp:.12});lenis.on("scroll",ScrollTrigger.update);gsap.ticker.add(t=>lenis.raf(t*1000));gsap.ticker.lagSmoothing(0)}
-  animatePane();
+  gsap.registerPlugin(ScrollTrigger);if(window.SplitText)gsap.registerPlugin(SplitText);MREADY=true;
+  ScrollTrigger.config({ignoreMobileResize:true});
+  const setNav=()=>document.documentElement.style.setProperty("--nav-h",navH()+"px");setNav();addEventListener("resize",setNav);
+  /* Lenis only on mouse-only devices: native scroll stays untouched on phones and touch laptops */
+  if(window.Lenis&&ScrollTrigger.isTouch===0){const lenis=new Lenis({lerp:.1,autoRaf:false,anchors:true});lenis.on("scroll",ScrollTrigger.update);gsap.ticker.add(t=>lenis.raf(t*1000));gsap.ticker.lagSmoothing(0)}
+  /* 1. headline: characters rise out of a mask once fonts are in */
+  document.fonts.ready.then(()=>{
+    if(window.SplitText){const sp=SplitText.create("h1",{type:"chars,words",mask:"chars",charsClass:"split-char"});gsap.from(sp.chars,{yPercent:110,duration:.7,ease:"power4.out",stagger:.028})}
+    gsap.from(".top .eyebrow,.status",{opacity:0,y:8,duration:.5,ease:"power2.out",stagger:.1,delay:.15});
+    animatePane();
+  });
+  /* 10. magnetic primary buttons (fine pointers only) */
+  if(FINE)document.querySelectorAll(".btn.primary,[data-goto]").forEach(b=>{
+    const x=gsap.quickTo(b,"x",{duration:.35,ease:"power3"}),y=gsap.quickTo(b,"y",{duration:.35,ease:"power3"});
+    b.addEventListener("pointermove",e=>{const r=b.getBoundingClientRect();x((e.clientX-r.left-r.width/2)*.3);y((e.clientY-r.top-r.height/2)*.3)});
+    b.addEventListener("pointerleave",()=>{gsap.to(b,{x:0,y:0,duration:.6,ease:"elastic.out(1,.45)"})});
+  });
 });
+
+/* called on every tab switch and once after fonts load: entrance + scroll reveals for the visible pane */
 function animatePane(){
-  if(!MOTION||!window.gsap)return;
+  if(!MOTION||!MREADY)return;
   const pane=document.querySelector("[data-pane]:not([hidden])");if(!pane)return;
-  gsap.fromTo(pane.querySelectorAll(":scope > .panel, :scope > * > .panel"),{opacity:0,y:14},{opacity:1,y:0,duration:.4,stagger:.06,ease:"power2.out",overwrite:true,clearProps:"transform"});
+  const name=pane.dataset.pane;
+  /* enable only the ScrollTriggers that live in the visible pane, then re-measure */
+  ScrollTrigger.getAll().forEach(t=>{const el=t.trigger;if(!el||!el.closest)return;const p=el.closest("[data-pane]");if(p)p.hidden?t.disable():t.enable()});
+  revealTriggers.forEach(t=>t.kill());revealTriggers=[];
+  /* 2a. static panels: short staggered rise */
+  const panels=[...pane.querySelectorAll(".panel,.split .stat")].filter(el=>!el.closest("#tasklist,#timeline"));
+  if(panels.length)gsap.fromTo(panels,{opacity:0,y:14},{opacity:1,y:0,duration:.45,stagger:.06,ease:"power2.out",overwrite:true,clearProps:"transform"});
+  /* 1b. panel headings: words rise from a mask */
+  if(window.SplitText)pane.querySelectorAll(".panel > header > h2, .story-h").forEach(h=>{
+    if(!h._split)h._split=SplitText.create(h,{type:"words",mask:"words",wordsClass:"split-word"});
+    gsap.fromTo(h._split.words,{yPercent:105},{yPercent:0,duration:.6,ease:"power3.out",stagger:.05,overwrite:true});
+  });
+  /* 2b. long lists (checklist categories): reveal as they scroll into view, once */
+  const batch=[...pane.querySelectorAll(".cat")];
+  if(batch.length){gsap.set(batch,{autoAlpha:0,y:18});revealTriggers=ScrollTrigger.batch(batch,{once:true,start:"top 94%",onEnter:b=>gsap.to(b,{autoAlpha:1,y:0,duration:.5,stagger:.07,ease:"power2.out",overwrite:true,clearProps:"transform"})})}
+  if(name==="overview")initStory();
+  if(name==="timeline")stackCards();
+  tickNumbers(pane);
+  requestAnimationFrame(()=>ScrollTrigger.refresh());
+}
+
+/* 5. the pinned, scrubbed story (desktop, mouse, tall viewport) or a plain scroll reveal (everything else) */
+function initStory(){
+  const story=$("#story");if(story.dataset.init)return;story.dataset.init=1;
+  const steps=[...story.querySelectorAll(".step")],path=$("#plan-path"),on=s=>s.classList.add("on");
+  gsap.matchMedia().add({pin:"(min-height:640px) and (hover:hover) and (pointer:fine)",flow:"(max-height:639px),(hover:none),(pointer:coarse)"},ctx=>{
+    if(ctx.conditions.pin&&ScrollTrigger.isTouch===0){
+      const tl=gsap.timeline({scrollTrigger:{trigger:story,start:()=>"top "+(navH()+10),end:"+=130%",pin:true,scrub:.5,anticipatePin:1}});
+      tl.fromTo(path,{strokeDashoffset:1},{strokeDashoffset:0,duration:3,ease:"none"},0);
+      steps.forEach((s,i)=>{tl.fromTo(s,{opacity:.28,y:22},{opacity:1,y:0,duration:1,ease:"power2.out"},i*.8+.15).call(on,[s],i*.8+.75)});
+      tl.to({},{duration:.6});
+    }else{
+      gsap.set(steps,{autoAlpha:0,y:24});
+      ScrollTrigger.batch(steps,{once:true,start:"top 88%",onEnter:b=>{gsap.to(b,{autoAlpha:1,y:0,duration:.6,stagger:.14,ease:"power2.out",clearProps:"transform"});b.forEach(on)}});
+      gsap.fromTo(path,{strokeDashoffset:1},{strokeDashoffset:0,duration:1.8,ease:"power1.inOut",scrollTrigger:{trigger:story,start:"top 85%",once:true}});
+    }
+  });
+}
+
+/* 6. timeline months stack under the tab bar; the card underneath scales back as the next slides over it */
+function stackCards(){
+  if(!MOTION||!MREADY)return;
+  stackTriggers.forEach(t=>t.kill());stackTriggers=[];
+  const cards=[...document.querySelectorAll("#timeline > .month.card")],max=innerHeight*.62;
+  cards.forEach((c,i)=>{c.style.setProperty("--i",i);c.classList.toggle("sticky",i<cards.length-1&&c.offsetHeight<max);gsap.set(c,{clearProps:"transform,opacity"})});
+  cards.forEach((c,i)=>{const prev=cards[i-1];if(!prev||!prev.classList.contains("sticky"))return;
+    stackTriggers.push(gsap.to(prev,{scale:.95,opacity:.55,ease:"none",scrollTrigger:{trigger:c,start:"top bottom",end:()=>"top "+(navH()+i*10),scrub:true}}).scrollTrigger)});
 }
 
 /* ---------- filters ---------- */
 for(const [id,key] of [["#f-who","who"],["#f-pri","pri"],["#f-done","done"]]){
-  $(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;F[key]=b.dataset.v;$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));renderTasks()});
+  $(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;F[key]=b.dataset.v;$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));vt(renderTasks)});
 }
 
 /* ---------- task helpers ---------- */
@@ -356,7 +575,7 @@ function dueHTML(t){
 }
 const CHECK=`<svg viewBox="0 0 16 16" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>`;
 function taskRow(t,showCat){
-  return `<div class="row${t.done?" done":""}">
+  return `<div class="row${t.done?" done":""}" style="view-transition-name:${showCat?"up":"tk"}-${vtn(t.id)}">
     <span class="pri pri-${esc(t.pri||"med")}" title="${esc(LBL[t.pri]||"Medium")} priority"></span>
     <button class="check" data-toggle="tasks:${esc(t.id)}" aria-label="${t.done?"Mark not done":"Mark done"}">${CHECK}</button>
     <button class="body" data-edit="tasks:${esc(t.id)}">
@@ -374,11 +593,12 @@ function renderOverview(){
   const week=open.filter(t=>t.due&&daysFrom(t.due)>=0&&daysFrom(t.due)<=7).length;
   $("#today-label").textContent=new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
   $("#stats").innerHTML=`
-    <div class="stat"><b class="num">${done}<small style="font-size:18px;color:var(--muted)">/${total}</small></b><span>tasks done</span></div>
-    <div class="stat${high?" alert":""}"><b class="num">${high}</b><span>high priority open</span></div>
-    <div class="stat${late?" alert":""}"><b class="num">${late}</b><span>overdue</span></div>
-    <div class="stat"><b class="num">${week}</b><span>due in the next 7 days</span></div>`;
-  $("#bar").style.width=total?(done/total*100)+"%":"0";
+    <div class="stat"><b class="num"><span data-count="${done}" data-key="done">${done}</span><small style="font-size:18px;color:var(--muted)">/${total}</small></b><span>tasks done</span></div>
+    <div class="stat${high?" alert":""}"><b class="num" data-count="${high}" data-key="high">${high}</b><span>high priority open</span></div>
+    <div class="stat${late?" alert":""}"><b class="num" data-count="${late}" data-key="late">${late}</b><span>overdue</span></div>
+    <div class="stat"><b class="num" data-count="${week}" data-key="week">${week}</b><span>due in the next 7 days</span></div>`;
+  setBar(total?done/total*100:0);
+  renderStory();renderTicker({open:open.length,late,nm:S.miles.filter(m=>!m.done&&m.date).sort((a,b)=>a.date<b.date?-1:1)[0]});
   const nm=S.miles.filter(m=>!m.done&&m.date).sort((a,b)=>a.date<b.date?-1:1)[0];
   $("#next-mile").innerHTML=nm?`Next milestone: <strong>${esc(nm.title)}</strong> · <span class="mono">${shortDate(nm.date)}</span> (${daysFrom(nm.date)<0?(-daysFrom(nm.date))+" days ago":daysFrom(nm.date)+" days out"})`:"No upcoming milestones. Add your target move-in date on the Timeline tab.";
   const up=sortTasks(open).slice(0,7);
@@ -403,11 +623,12 @@ function renderTimeline(){
   let html="";
   for(const [key,arr] of months){
     const label=parse(key+"-01").toLocaleDateString("en-US",{month:"long",year:"numeric"});
-    html+=`<div class="month"><h3>${label}</h3><div class="tl">${arr.map(it=>it.k==="today"
+    html+=`<div class="month card"><h3>${label}</h3><div class="tl">${arr.map(it=>it.k==="today"
       ?`<div class="tl-item today"><span class="d">${shortDate(it.date)}</span><span class="x">Today</span></div>`
-      :`<div class="tl-item ${it.k}${it.done?" done":""}"><span class="d">${shortDate(it.date)}</span><button class="x" data-edit="${it.coll}:${esc(it.id)}">${esc(it.title)}</button></div>`).join("")}</div></div>`;
+      :`<div class="tl-item ${it.k}${it.done?" done":""}" style="view-transition-name:tl-${it.k}-${vtn(it.id)}"><span class="d">${shortDate(it.date)}</span><button class="x" data-edit="${it.coll}:${esc(it.id)}">${esc(it.title)}</button></div>`).join("")}</div></div>`;
   }
-  $("#timeline").innerHTML=items.length>1?html:`<div class="empty">${S.loaded?"No dates yet. Add a milestone, or give checklist items a due date.":"Loading the plan…"}</div>`;
+  $("#timeline").innerHTML=items.length>1?html:`<div class="panel"><div class="empty">${S.loaded?"No dates yet. Add a milestone, or give checklist items a due date.":"Loading the plan…"}</div></div>`;
+  if(!$("[data-pane=timeline]").hidden)stackCards();
 }
 function renderBays(){
   const by=Object.fromEntries(S.bays.map(b=>[b.id,b]));
@@ -426,17 +647,17 @@ function renderBudget(){
   const share=(c,who)=>{const a=+c.amount||0;const s=c.split||"5050";return s==="5050"?a/2:s===who?a:0};
   const sum=(kind,who)=>S.costs.filter(c=>(c.kind||"once")===kind).reduce((n,c)=>n+(who?share(c,who):(+c.amount||0)),0);
   $("#split").innerHTML=`
-    <div class="stat"><b class="num">${money(sum("monthly"))}</b><span>monthly, total</span></div>
-    <div class="stat"><b class="num" style="color:var(--imm)">${money(sum("monthly","imm"))}</b><span>Immaculate per month</span></div>
-    <div class="stat"><b class="num" style="color:var(--bcs)">${money(sum("monthly","bcs"))}</b><span>BCS per month</span></div>
-    <div class="stat"><b class="num">${money(sum("once"))}</b><span>one-time move costs · ${money(sum("once","imm"))} / ${money(sum("once","bcs"))}</span></div>`;
+    <div class="stat"><b class="num" data-count="${sum("monthly")}" data-key="m-all" data-fmt="money">${money(sum("monthly"))}</b><span>monthly, total</span></div>
+    <div class="stat"><b class="num" style="color:var(--imm)" data-count="${sum("monthly","imm")}" data-key="m-imm" data-fmt="money">${money(sum("monthly","imm"))}</b><span>Immaculate per month</span></div>
+    <div class="stat"><b class="num" style="color:var(--bcs)" data-count="${sum("monthly","bcs")}" data-key="m-bcs" data-fmt="money">${money(sum("monthly","bcs"))}</b><span>BCS per month</span></div>
+    <div class="stat"><b class="num" data-count="${sum("once")}" data-key="once" data-fmt="money">${money(sum("once"))}</b><span>one-time move costs · ${money(sum("once","imm"))} / ${money(sum("once","bcs"))}</span></div>`;
   const rows=[...S.costs].sort((a,b)=>((a.kind||"once")===(b.kind||"once")?0:(a.kind==="monthly"?-1:1))||((b.amount||0)-(a.amount||0)));
   if(!rows.length){$("#costs").innerHTML=`<div class="empty">${S.loaded?"No costs yet. Add rent, deposit, utilities and build-out quotes to see each side's share.":"Loading…"}</div>`;return}
   $("#costs").innerHTML=`<table><thead><tr><th>Item</th><th>Type</th><th>Split</th><th class="r">Amount</th><th class="r">Immaculate</th><th class="r">BCS</th></tr></thead><tbody>
-    ${rows.map(c=>`<tr class="click" data-edit="costs:${esc(c.id)}" tabindex="0"><td>${esc(c.item)}${c.notes?`<div class="notes-flag">${esc(c.notes)}</div>`:""}</td><td>${esc(LBL[c.kind||"once"])}</td><td>${esc((SPLITS.find(s=>s[0]===(c.split||"5050"))||[])[1])}</td><td class="r num">${money(c.amount)}</td><td class="r num">${money(share(c,"imm"))}</td><td class="r num">${money(share(c,"bcs"))}</td></tr>`).join("")}
+    ${rows.map(c=>`<tr class="click" data-edit="costs:${esc(c.id)}" tabindex="0" style="view-transition-name:co-${vtn(c.id)}"><td>${esc(c.item)}${c.notes?`<div class="notes-flag">${esc(c.notes)}</div>`:""}</td><td>${esc(LBL[c.kind||"once"])}</td><td>${esc((SPLITS.find(s=>s[0]===(c.split||"5050"))||[])[1])}</td><td class="r num">${money(c.amount)}</td><td class="r num">${money(share(c,"imm"))}</td><td class="r num">${money(share(c,"bcs"))}</td></tr>`).join("")}
   </tbody></table>`;
 }
-function render(){renderOverview();renderTasks();renderTimeline();renderBays();renderBudget()}
+function render(){renderOverview();renderTasks();renderTimeline();renderBays();renderBudget();tickNumbers()}
 
 /* ---------- editing ---------- */
 const SCHEMA={
@@ -517,7 +738,7 @@ render();
   const got=new Set();
   for(const c of ["tasks","miles","costs","bays"]){
     db.collection(c).onSnapshot(s=>{
-      S[c]=s.docs.map(d=>({id:d.id,...d.data()}));got.add(c);if(got.size===4)S.loaded=true;render();
+      S[c]=s.docs.map(d=>({id:d.id,...d.data()}));got.add(c);const first=!S.loaded&&got.size===4;if(got.size===4)S.loaded=true;first?render():vt(render);
     },err=>{console.error(err);setStatus("off","Disconnected · reload");});
   }
 })();
